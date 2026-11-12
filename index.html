@@ -3,16 +3,730 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>EduTest AI Suite</title>
+  <title>EduTest AI Suite — Platform Asesmen & Psikometri</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
 </head>
-<body>
+<body class="bg-slate-50 text-slate-800 antialiased">
   <div id="root"></div>
+
   <script type="text/babel">
-    // Kode React App.jsx ditempel di sini
+    const { useState, useEffect, useMemo } = React;
+
+    // Helper Komponen Ikon Lucide untuk Browser Standalone
+    const Icon = ({ name, className = "w-4 h-4" }) => {
+      const containerRef = React.useRef(null);
+      useEffect(() => {
+        if (containerRef.current && window.lucide) {
+          containerRef.current.innerHTML = `<i data-lucide="${name}" class="${className}"></i>`;
+          window.lucide.createIcons({ root: containerRef.current });
+        }
+      }, [name, className]);
+      return <span ref={containerRef} className="inline-flex items-center justify-center" />;
+    };
+
+    // Data Awal Kurikulum Merdeka (Fase 1)
+    const INITIAL_CP_LIST = [
+      { id: 'CP-01', mapel: 'Matematika', fase: 'Fase E (Kelas 10)', elemen: 'Aljabar dan Fungsi', cpText: 'Peserta didik dapat menyelesaikan masalah yang berkaitan dengan sistem persamaan linear tiga variabel dan sistem pertidaksamaan linear dua variabel.' },
+      { id: 'CP-02', mapel: 'Bahasa Indonesia', fase: 'Fase E (Kelas 10)', elemen: 'Membaca dan Memirsa', cpText: 'Peserta didik mampu mengevaluasi informasi berupa gagasan, pikiran, pandangan, arahan atau pesan dari berbagai jenis teks.' },
+      { id: 'CP-03', mapel: 'Fisika', fase: 'Fase F (Kelas 11)', elemen: 'Pemahaman Fisika', cpText: 'Peserta didik mampu menerapkan konsep gelombang, optik, dan termodinamika dalam kehidupan sehari-hari.' },
+    ];
+
+    // Data Awal Siswa (Fase 3)
+    const INITIAL_STUDENTS = [
+      { id: 'S01', nisn: '0051234501', nama: 'Ahmad Rizky', kelas: 'X-1', status: 'Aktif' },
+      { id: 'S02', nisn: '0051234502', nama: 'Siti Rahmawati', kelas: 'X-1', status: 'Aktif' },
+      { id: 'S03', nisn: '0051234503', nama: 'Citra Dewi', kelas: 'X-1', status: 'Aktif' },
+      { id: 'S04', nisn: '0051234504', nama: 'Dedi Kurniawan', kelas: 'X-1', status: 'Aktif' },
+      { id: 'S05', nisn: '0051234505', nama: 'Eka Prasetya', kelas: 'X-1', status: 'Aktif' },
+    ];
+
+    // Bank Soal Awal (Fase 2)
+    const SAMPLE_QUESTION_BANK = [
+      {
+        id: 1,
+        type: 'PG',
+        mapel: 'Matematika',
+        level: 'C3 (Aplikasi)',
+        indikator: 'Siswa dapat menentukan nilai x dari SPLDV',
+        soal: 'Tentukan himpunan penyelesaian dari sistem persamaan 2x + 3y = 12 dan x - y = 1.',
+        options: ['A. x = 3, y = 2', 'B. x = 2, y = 3', 'C. x = 4, y = 1', 'D. x = 1, y = 4', 'E. x = 3, y = 1'],
+        kunci: 'A',
+        rubrik: 'Skor 1 jika jawaban benar (A), skor 0 jika salah.',
+        kesukaran: 'Sedang (0.55)',
+        dayaPembeda: 'Bagus (0.42)'
+      },
+      {
+        id: 2,
+        type: 'PG',
+        mapel: 'Matematika',
+        level: 'C4 (Analisis)',
+        indikator: 'Menganalisis sistem pertidaksamaan linear',
+        soal: 'Daerah penyelesaian pertidaksamaan 3x + 2y <= 12 untuk x >= 0, y >= 0 berada di kuadran...',
+        options: ['A. Kuadran I', 'B. Kuadran II', 'C. Kuadran III', 'D. Kuadran IV', 'E. Kuadran I & II'],
+        kunci: 'A',
+        rubrik: 'Skor 1 jika jawaban benar (A), skor 0 jika salah.',
+        kesukaran: 'Mudah (0.82)',
+        dayaPembeda: 'Cukup (0.28)'
+      },
+      {
+        id: 3,
+        type: 'Essay',
+        mapel: 'Matematika',
+        level: 'C5 (Evaluasi)',
+        indikator: 'Menyelesaikan masalah kontekstual menggunakan SPLDV',
+        soal: 'Sebuah toko buku menjual 3 buku tulis dan 2 pensil seharga Rp18.000, sedangkan 2 buku tulis dan 5 pensil seharga Rp23.000. Buatlah model matematika dan hitung harga 1 buku tulis!',
+        options: [],
+        kunci: 'Model: 3x+2y=18000, 2x+5y=23000. Harga 1 buku tulis (x) = Rp4.000.',
+        rubrik: 'Model benar (skor 2), Langkah pengerjaan benar (skor 2), Hasil akhir benar (skor 1). Total Skor Max = 5.',
+        kesukaran: 'Sukar (0.25)',
+        dayaPembeda: 'Sangat Bagus (0.55)'
+      }
+    ];
+
+    function App() {
+      const [activeTab, setActiveTab] = useState('phase1');
+      const [userRole, setUserRole] = useState('Guru');
+      const [apiKey, setApiKey] = useState('');
+
+      // Fase 1 State
+      const [schoolProfile, setSchoolProfile] = useState({
+        namaSekolah: 'SMA Negeri 1 Nusantara',
+        npsn: '20108899',
+        alamat: 'Jl. Merdeka Pendidikan No. 45, Bandung',
+        namaKepsek: 'Dr. H. Ahmad Sudrajat, M.Pd.',
+        namaGuru: 'Siti Aminah, S.Pd.',
+        nipGuru: '19850321 200902 2 004',
+        lisensi: 'ENTERPRISE-2026-AKTIF'
+      });
+      const [cpList, setCpList] = useState(INITIAL_CP_LIST);
+      const [newCp, setNewCp] = useState({ mapel: 'Matematika', fase: 'Fase E (Kelas 10)', elemen: '', cpText: '' });
+
+      // Fase 2 State
+      const [promptConfig, setPromptConfig] = useState({
+        mapel: 'Matematika',
+        fase: 'Fase E (Kelas 10)',
+        materi: 'Sistem Persamaan Linear Dua Variabel (SPLDV)',
+        bloom: 'C4 - Analisis',
+        jumlahSoal: 3
+      });
+      const [questions, setQuestions] = useState(SAMPLE_QUESTION_BANK);
+      const [isGenerating, setIsGenerating] = useState(false);
+
+      // Fase 3 State
+      const [students, setStudents] = useState(INITIAL_STUDENTS);
+      const [examConfig, setExamConfig] = useState({
+        judul: 'Asesmen Sumatif Tengah Semester (ASTS) Matematika',
+        kodeAkses: 'EXAM-8921',
+        durasi: 60,
+        isPublished: true
+      });
+      const [cbtActive, setCbtActive] = useState(false);
+      const [cbtAnswers, setCbtAnswers] = useState({});
+      const [cbtResult, setCbtResult] = useState(null);
+
+      // Fase 4 State
+      const [kktpThreshold, setKktpThreshold] = useState(75);
+      const studentScores = [
+        { nama: 'Ahmad Rizky', nisn: '0051234501', nilai: 88, b1: 1, b2: 1, b3: 1 },
+        { nama: 'Siti Rahmawati', nisn: '0051234502', nilai: 92, b1: 1, b2: 1, b3: 1 },
+        { nama: 'Citra Dewi', nisn: '0051234503', nilai: 65, b1: 0, b2: 1, b3: 0 },
+        { nama: 'Dedi Kurniawan', nisn: '0051234504', nilai: 78, b1: 1, b2: 1, b3: 0 },
+        { nama: 'Eka Prasetya', nisn: '0051234505', nilai: 58, b1: 0, b2: 0, b3: 0 },
+      ];
+
+      // Fase 5 State
+      const [isOffline, setIsOffline] = useState(false);
+      const [backupStatus, setBackupStatus] = useState('Terakhir: Hari ini, 02:00 WIB (Sukses)');
+
+      const handleAddCp = (e) => {
+        e.preventDefault();
+        if (!newCp.elemen || !newCp.cpText) return;
+        setCpList([...cpList, { id: `CP-0${cpList.length + 1}`, ...newCp }]);
+        setNewCp({ ...newCp, elemen: '', cpText: '' });
+      };
+
+      const handleGenerateAI = async () => {
+        setIsGenerating(true);
+        setTimeout(() => {
+          const generatedItem = {
+            id: questions.length + 1,
+            type: 'PG',
+            mapel: promptConfig.mapel,
+            level: promptConfig.bloom,
+            indikator: `Menganalisis konsep ${promptConfig.materi}`,
+            soal: `[AI Generated - ${promptConfig.materi}] Jika diketahui 4x - y = 11 dan 2x + 3y = 9, maka nilai dari x + y adalah...`,
+            options: ['A. 4', 'B. 5', 'C. 6', 'D. 3', 'E. 2'],
+            kunci: 'A',
+            rubrik: 'Skor 1 jika memilih A (x=3, y=1 -> x+y=4), skor 0 jika salah.',
+            kesukaran: 'Sedang (0.60)',
+            dayaPembeda: 'Baik (0.45)'
+          };
+          setQuestions([generatedItem, ...questions]);
+          setIsGenerating(false);
+        }, 900);
+      };
+
+      const handleFinishCBT = () => {
+        const pgQuestions = questions.filter(q => q.type === 'PG');
+        let correct = 0;
+        pgQuestions.forEach((q, idx) => {
+          if (cbtAnswers[idx] === q.kunci) correct++;
+        });
+        const score = pgQuestions.length > 0 ? Math.round((correct / pgQuestions.length) * 100) : 100;
+        setCbtResult({ correct, total: pgQuestions.length, score });
+      };
+
+      const phases = [
+        { id: 'phase1', label: 'Fase 1: Foundation & CP/TP', icon: 'building-2' },
+        { id: 'phase2', label: 'Fase 2: AI Generator & Bank Soal', icon: 'sparkles' },
+        { id: 'phase3', label: 'Fase 3: Exam Simulator (CBT)', icon: 'play-circle' },
+        { id: 'phase4', label: 'Fase 4: Analytics, KKTP & KR-20', icon: 'bar-chart-3' },
+        { id: 'phase5', label: 'Fase 5: Production & Audit', icon: 'shield-check' },
+      ];
+
+      return (
+        <div className="min-h-screen flex flex-col">
+          {/* Top Navbar */}
+          <header className="bg-slate-900 text-white px-6 py-4 shadow-md flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="bg-blue-600 p-2 rounded-lg">
+                <Icon name="book-open" className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h1 className="font-bold text-lg tracking-tight">EduTest AI Suite</h1>
+                <p className="text-xs text-slate-400">Sistem Asesmen Kurikulum Merdeka & Psikometri CTT</p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <span className="text-xs bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-3 py-1 rounded-full">
+                Lisensi: {schoolProfile.lisensi}
+              </span>
+              <select
+                value={userRole}
+                onChange={(e) => setUserRole(e.target.value)}
+                className="bg-slate-800 border border-slate-700 text-xs rounded-lg px-3 py-1.5 text-white"
+              >
+                <option value="Guru">Role: Guru Mapel</option>
+                <option value="Admin Sekolah">Role: Admin Sekolah</option>
+                <option value="Proktor">Role: Proktor Ujian</option>
+              </select>
+            </div>
+          </header>
+
+          {/* Navigation Tabs */}
+          <nav className="bg-white border-b border-slate-200 px-6 overflow-x-auto">
+            <div className="flex space-x-2 py-2">
+              {phases.map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => setActiveTab(p.id)}
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${
+                    activeTab === p.id
+                      ? 'bg-blue-600 text-white shadow-sm'
+                      : 'text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  <Icon name={p.icon} className="w-4 h-4" />
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          </nav>
+
+          {/* Main Content Area */}
+          <main className="flex-1 max-w-7xl w-full mx-auto p-6">
+            {/* FASE 1 */}
+            {activeTab === 'phase1' && (
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
+                  <h2 className="font-bold text-base flex items-center gap-2 text-slate-800">
+                    <Icon name="building-2" className="w-5 h-5 text-blue-600" />
+                    Identitas Sekolah & Guru
+                  </h2>
+                  <div className="space-y-3 text-sm">
+                    <div>
+                      <label className="text-xs font-semibold text-slate-500">Nama Satuan Pendidikan</label>
+                      <input
+                        type="text"
+                        value={schoolProfile.namaSekolah}
+                        onChange={(e) => setSchoolProfile({ ...schoolProfile, namaSekolah: e.target.value })}
+                        className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-lg"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-slate-500">NPSN</label>
+                      <input
+                        type="text"
+                        value={schoolProfile.npsn}
+                        onChange={(e) => setSchoolProfile({ ...schoolProfile, npsn: e.target.value })}
+                        className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-lg"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-slate-500">Nama Guru Pengampu</label>
+                      <input
+                        type="text"
+                        value={schoolProfile.namaGuru}
+                        onChange={(e) => setSchoolProfile({ ...schoolProfile, namaGuru: e.target.value })}
+                        className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-lg"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-slate-500">NIP / NUPTK</label>
+                      <input
+                        type="text"
+                        value={schoolProfile.nipGuru}
+                        onChange={(e) => setSchoolProfile({ ...schoolProfile, nipGuru: e.target.value })}
+                        className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-lg"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="lg:col-span-2 bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
+                  <h2 className="font-bold text-base flex items-center gap-2 text-slate-800">
+                    <Icon name="layers" className="w-5 h-5 text-blue-600" />
+                    Konfigurasi Kurikulum Merdeka (CP & TP)
+                  </h2>
+                  <form onSubmit={handleAddCp} className="grid grid-cols-1 md:grid-cols-3 gap-3 bg-slate-50 p-4 rounded-lg border border-slate-200">
+                    <input
+                      type="text"
+                      placeholder="Mata Pelajaran (mis. Biologi)"
+                      value={newCp.mapel}
+                      onChange={(e) => setNewCp({ ...newCp, mapel: e.target.value })}
+                      className="px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Elemen CP (mis. Pemahaman Sains)"
+                      value={newCp.elemen}
+                      onChange={(e) => setNewCp({ ...newCp, elemen: e.target.value })}
+                      className="px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white"
+                    />
+                    <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white font-medium text-sm px-4 py-2 rounded-lg">
+                      + Tambah CP/TP
+                    </button>
+                    <textarea
+                      placeholder="Deskripsi Capaian Pembelajaran (CP) / Tujuan Pembelajaran (TP)..."
+                      value={newCp.cpText}
+                      onChange={(e) => setNewCp({ ...newCp, cpText: e.target.value })}
+                      className="md:col-span-3 px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white"
+                      rows="2"
+                    />
+                  </form>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm text-left border-collapse">
+                      <thead>
+                        <tr className="bg-slate-100 text-slate-600 border-b border-slate-200">
+                          <th className="py-2.5 px-3">Kode</th>
+                          <th className="py-2.5 px-3">Mapel & Fase</th>
+                          <th className="py-2.5 px-3">Elemen</th>
+                          <th className="py-2.5 px-3">Deskripsi CP/TP</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200">
+                        {cpList.map((item) => (
+                          <tr key={item.id} className="hover:bg-slate-50">
+                            <td className="py-2.5 px-3 font-semibold text-blue-600">{item.id}</td>
+                            <td className="py-2.5 px-3">
+                              <div className="font-medium">{item.mapel}</div>
+                              <div className="text-xs text-slate-500">{item.fase}</div>
+                            </td>
+                            <td className="py-2.5 px-3 text-slate-700">{item.elemen}</td>
+                            <td className="py-2.5 px-3 text-slate-600">{item.cpText}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* FASE 2 */}
+            {activeTab === 'phase2' && (
+              <div className="space-y-6">
+                <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                  <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+                    <h2 className="font-bold text-base flex items-center gap-2">
+                      <Icon name="sparkles" className="w-5 h-5 text-blue-600" />
+                      AI Assessment Generator (Gemini API)
+                    </h2>
+                    <input
+                      type="password"
+                      placeholder="Opsional: Masukkan Gemini API Key..."
+                      value={apiKey}
+                      onChange={(e) => setApiKey(e.target.value)}
+                      className="text-xs px-3 py-1.5 border border-slate-300 rounded-lg w-64"
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div>
+                      <label className="text-xs font-semibold text-slate-500">Mata Pelajaran</label>
+                      <input
+                        type="text"
+                        value={promptConfig.mapel}
+                        onChange={(e) => setPromptConfig({ ...promptConfig, mapel: e.target.value })}
+                        className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-lg text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-slate-500">Topik / Materi</label>
+                      <input
+                        type="text"
+                        value={promptConfig.materi}
+                        onChange={(e) => setPromptConfig({ ...promptConfig, materi: e.target.value })}
+                        className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-lg text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-slate-500">Level Taksonomi Bloom</label>
+                      <select
+                        value={promptConfig.bloom}
+                        onChange={(e) => setPromptConfig({ ...promptConfig, bloom: e.target.value })}
+                        className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-lg text-sm"
+                      >
+                        <option>C2 - Pemahaman</option>
+                        <option>C3 - Aplikasi</option>
+                        <option>C4 - Analisis</option>
+                        <option>C5 - Evaluasi</option>
+                        <option>C6 - Kreasi</option>
+                      </select>
+                    </div>
+                    <div className="flex items-end">
+                      <button
+                        onClick={handleGenerateAI}
+                        disabled={isGenerating}
+                        className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium text-sm py-2 px-4 rounded-lg flex items-center justify-center gap-2"
+                      >
+                        <Icon name="sparkles" className="w-4 h-4" />
+                        {isGenerating ? 'Menyusun Soal...' : 'Generate Soal & Kisi-kisi'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Bank Soal & Kisi-kisi */}
+                <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
+                  <div className="flex flex-wrap items-center justify-between gap-4">
+                    <h3 className="font-bold text-base">Bank Soal, Kisi-kisi & Rubrik ({questions.length} Butir)</h3>
+                    <button
+                      onClick={() => window.print()}
+                      className="bg-slate-800 hover:bg-slate-900 text-white text-xs px-4 py-2 rounded-lg flex items-center gap-2"
+                    >
+                      <Icon name="printer" className="w-4 h-4" />
+                      Cetak / Ekspor PDF Naskah Soal
+                    </button>
+                  </div>
+
+                  <div className="space-y-4">
+                    {questions.map((q, index) => (
+                      <div key={q.id} className="p-4 border border-slate-200 rounded-lg bg-slate-50/50 space-y-2">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <span className="text-xs font-bold bg-blue-100 text-blue-700 px-2.5 py-0.5 rounded">
+                            No. {index + 1} • {q.type} • {q.level}
+                          </span>
+                          <span className="text-xs text-slate-500">Indikator: {q.indikator}</span>
+                        </div>
+                        <p className="text-sm font-medium text-slate-800">{q.soal}</p>
+                        {q.options.length > 0 && (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pl-4 text-xs text-slate-700">
+                            {q.options.map((opt, i) => (
+                              <div key={i}>{opt}</div>
+                            ))}
+                          </div>
+                        )}
+                        <div className="pt-2 border-t border-slate-200 flex flex-wrap justify-between text-xs text-slate-600 gap-2">
+                          <span><strong>Kunci Jawaban:</strong> {q.kunci}</span>
+                          <span><strong>Rubrik:</strong> {q.rubrik}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* FASE 3 */}
+            {activeTab === 'phase3' && (
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
+                  <h2 className="font-bold text-base">Publikasi Ujian & Kode Akses</h2>
+                  <div className="space-y-3 text-sm">
+                    <div>
+                      <label className="text-xs font-semibold text-slate-500">Judul Sesi Ujian</label>
+                      <input
+                        type="text"
+                        value={examConfig.judul}
+                        onChange={(e) => setExamConfig({ ...examConfig, judul: e.target.value })}
+                        className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-lg"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs font-semibold text-slate-500">Token / Kode Akses</label>
+                        <input
+                          type="text"
+                          value={examConfig.kodeAkses}
+                          onChange={(e) => setExamConfig({ ...examConfig, kodeAkses: e.target.value })}
+                          className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-lg font-mono font-bold text-blue-600"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-semibold text-slate-500">Durasi (Menit)</label>
+                        <input
+                          type="number"
+                          value={examConfig.durasi}
+                          onChange={(e) => setExamConfig({ ...examConfig, durasi: Number(e.target.value) })}
+                          className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-lg"
+                        />
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setCbtActive(true);
+                        setCbtResult(null);
+                        setCbtAnswers({});
+                      }}
+                      className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2.5 px-4 rounded-lg flex items-center justify-center gap-2"
+                    >
+                      <Icon name="play-circle" className="w-4 h-4" />
+                      Buka Simulasi Ruang Ujian (CBT)
+                    </button>
+                  </div>
+
+                  <div className="pt-4 border-t border-slate-200">
+                    <h3 className="font-semibold text-xs text-slate-500 uppercase mb-2">Daftar Peserta Kelas X-1</h3>
+                    <ul className="divide-y divide-slate-100 text-sm">
+                      {students.map((s) => (
+                        <li key={s.id} className="py-2 flex justify-between items-center">
+                          <span>{s.nama} <span className="text-xs text-slate-400">({s.nisn})</span></span>
+                          <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded">{s.status}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+
+                <div className="lg:col-span-2 bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                  {!cbtActive ? (
+                    <div className="h-64 flex flex-col items-center justify-center text-center text-slate-500 space-y-2">
+                      <Icon name="play-circle" className="w-10 h-10 text-slate-300" />
+                      <p className="text-sm font-medium">Klik tombol "Buka Simulasi Ruang Ujian (CBT)" untuk mencoba tampilan pengerjaan siswa.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="flex justify-between items-center pb-3 border-b border-slate-200">
+                        <div>
+                          <span className="text-xs font-bold text-blue-600">MODE SIMULASI PESERTA • TOKEN: {examConfig.kodeAkses}</span>
+                          <h3 className="font-bold text-base">{examConfig.judul}</h3>
+                        </div>
+                        <span className="bg-amber-100 text-amber-800 text-xs font-bold px-3 py-1 rounded-full">
+                          Sisa Waktu: {examConfig.durasi}:00
+                        </span>
+                      </div>
+
+                      {cbtResult ? (
+                        <div className="p-6 bg-emerald-50 border border-emerald-200 rounded-xl text-center space-y-2">
+                          <h4 className="font-bold text-lg text-emerald-900">Ujian Selesai & Dinilai Otomatis!</h4>
+                          <p className="text-sm text-emerald-700">
+                            Benar: {cbtResult.correct} dari {cbtResult.total} soal Pilihan Ganda
+                          </p>
+                          <div className="text-4xl font-extrabold text-emerald-600 py-2">Skor: {cbtResult.score}</div>
+                          <button
+                            onClick={() => setCbtActive(false)}
+                            className="text-xs bg-slate-800 text-white px-4 py-2 rounded-lg"
+                          >
+                            Tutup Simulasi
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          {questions.filter(q => q.type === 'PG').map((q, idx) => (
+                            <div key={q.id} className="p-4 border border-slate-200 rounded-lg space-y-2">
+                              <p className="text-sm font-medium">{idx + 1}. {q.soal}</p>
+                              <div className="space-y-1.5">
+                                {q.options.map((opt) => {
+                                  const letter = opt.charAt(0);
+                                  return (
+                                    <label key={opt} className="flex items-center gap-2 text-sm cursor-pointer p-1.5 rounded hover:bg-slate-50">
+                                      <input
+                                        type="radio"
+                                        name={`q-${idx}`}
+                                        checked={cbtAnswers[idx] === letter}
+                                        onChange={() => setCbtAnswers({ ...cbtAnswers, [idx]: letter })}
+                                      />
+                                      <span>{opt}</span>
+                                    </label>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          ))}
+                          <button
+                            onClick={handleFinishCBT}
+                            className="bg-blue-600 hover:bg-blue-700 text-white font-medium text-sm px-6 py-2.5 rounded-lg"
+                          >
+                            Kumpulkan Jawaban & Lihat Nilai Otomatis
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* FASE 4 */}
+            {activeTab === 'phase4' && (
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                    <div className="text-xs text-slate-500">Rata-rata Kelas</div>
+                    <div className="text-2xl font-bold text-slate-800 mt-1">76.2</div>
+                  </div>
+                  <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                    <div className="text-xs text-slate-500">Reliabilitas Tes (KR-20)</div>
+                    <div className="text-2xl font-bold text-blue-600 mt-1">0.814 <span className="text-xs font-normal text-emerald-600">(Tinggi)</span></div>
+                  </div>
+                  <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                    <div className="text-xs text-slate-500">Batas KKTP</div>
+                    <input
+                      type="number"
+                      value={kktpThreshold}
+                      onChange={(e) => setKktpThreshold(Number(e.target.value))}
+                      className="mt-1 w-24 px-2 py-1 border border-slate-300 rounded font-bold text-lg"
+                    />
+                  </div>
+                  <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                    <div className="text-xs text-slate-500">Ketuntasan Klasikal</div>
+                    <div className="text-2xl font-bold text-emerald-600 mt-1">
+                      {Math.round((studentScores.filter(s => s.nilai >= kktpThreshold).length / studentScores.length) * 100)}%
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Pemetaan KKTP & Remedial */}
+                  <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-3">
+                    <h3 className="font-bold text-base">Analisis KKTP & Pemetaan Remedial</h3>
+                    <table className="w-full text-sm text-left">
+                      <thead>
+                        <tr className="bg-slate-100 text-slate-600">
+                          <th className="py-2 px-3">Nama Siswa</th>
+                          <th className="py-2 px-3">Nilai</th>
+                          <th className="py-2 px-3">Status Tindak Lanjut</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200">
+                        {studentScores.map((s) => {
+                          const tuntas = s.nilai >= kktpThreshold;
+                          return (
+                            <tr key={s.nisn}>
+                              <td className="py-2 px-3 font-medium">{s.nama}</td>
+                              <td className="py-2 px-3 font-bold">{s.nilai}</td>
+                              <td className="py-2 px-3">
+                                <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${tuntas ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                                  {tuntas ? 'Tuntas (Pengayaan)' : 'Belum Tuntas (Remedial)'}
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Analisis Butir Soal (CTT) */}
+                  <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-3">
+                    <h3 className="font-bold text-base">Analisis Butir Soal (Kesukaran, Daya Pembeda & Pengecoh)</h3>
+                    <table className="w-full text-sm text-left">
+                      <thead>
+                        <tr className="bg-slate-100 text-slate-600">
+                          <th className="py-2 px-3">Butir</th>
+                          <th className="py-2 px-3">Tingkat Kesukaran (P)</th>
+                          <th className="py-2 px-3">Daya Pembeda (D)</th>
+                          <th className="py-2 px-3">Efektivitas Pengecoh</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200">
+                        {questions.map((q, i) => (
+                          <tr key={q.id}>
+                            <td className="py-2 px-3 font-bold">Soal #{i + 1}</td>
+                            <td className="py-2 px-3">{q.kesukaran}</td>
+                            <td className="py-2 px-3">{q.dayaPembeda}</td>
+                            <td className="py-2 px-3 text-xs text-emerald-700 font-medium">Berfungsi Baik</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* FASE 5 */}
+            {activeTab === 'phase5' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
+                  <h2 className="font-bold text-base flex items-center gap-2">
+                    <Icon name="wifi" className="w-5 h-5 text-blue-600" />
+                    PWA & Offline Synchronization
+                  </h2>
+                  <p className="text-sm text-slate-600">
+                    Menjaga jawaban ujian siswa tetap tersimpan di IndexedDB browser saat koneksi internet sekolah terputus, dan menyinkronkannya otomatis ke PostgreSQL saat kembali online.
+                  </p>
+                  <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg border border-slate-200">
+                    <div>
+                      <div className="text-sm font-bold">{isOffline ? 'Mode Offline Aktif (Lokal)' : 'Online & Tersinkronisasi'}</div>
+                      <div className="text-xs text-slate-500">Antrean sinkronisasi: 0 paket tertunda</div>
+                    </div>
+                    <button
+                      onClick={() => setIsOffline(!isOffline)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium text-white ${isOffline ? 'bg-amber-600' : 'bg-emerald-600'}`}
+                    >
+                      {isOffline ? 'Simulasikan Online' : 'Simulasikan Putus Koneksi'}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
+                  <h2 className="font-bold text-base flex items-center gap-2">
+                    <Icon name="database" className="w-5 h-5 text-blue-600" />
+                    Backup Database & Keamanan Sistem
+                  </h2>
+                  <div className="p-4 bg-slate-50 rounded-lg border border-slate-200 space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Status Backup PostgreSQL:</span>
+                      <span className="font-semibold text-emerald-700">{backupStatus}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Uji Beban (Load Testing):</span>
+                      <span className="font-semibold text-slate-800">500 Siswa Simultan (Latensi 42ms)</span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setBackupStatus('Baru saja: Manual Snapshot Berhasil (24.8 MB)')}
+                    className="bg-slate-800 hover:bg-slate-900 text-white text-xs font-medium px-4 py-2.5 rounded-lg"
+                  >
+                    Jalankan Backup Database Sekarang
+                  </button>
+                </div>
+              </div>
+            )}
+          </main>
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
   </script>
 </body>
 </html>
